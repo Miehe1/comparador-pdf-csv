@@ -24,11 +24,18 @@ env/
 .idea/
 *.cursor
 
+# Scripts temporários de análise
+comparar.py
+debug_csv.py
+debug_pdf.py
+resultado_comparacao.py
+
 # Arquivos de dados (não subir arquivos pessoais)
 *.pdf
 *.csv
 *.txt
 !README.md
+!requirements.txt
 
 # OS
 .DS_Store
