@@ -248,6 +248,14 @@ _session_data = {}  # armazenamento em memória simples
 def handle_exception(e):
     return jsonify({'error': str(e)}), 500
 
+@app.errorhandler(404)
+def handle_404(e):
+    return jsonify({'error': 'Rota não encontrada'}), 404
+
+@app.errorhandler(413)
+def handle_413(e):
+    return jsonify({'error': 'Arquivo muito grande. Limite: 50 MB'}), 413
+
 @app.route('/')
 def index():
     return render_template('index.html')

@@ -273,13 +273,16 @@ document.getElementById('btn-upload').addEventListener('click', async () => {
   status.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Processando...';
 
   const fd = new FormData();
-  fd.append('pdf', document.getElementById('inp-pdf').files[0]);
-  fd.append('csv', document.getElementById('inp-csv').files[0]);
+  const pdfFile = document.getElementById('inp-pdf').files[0];
+  const csvFile = document.getElementById('inp-csv').files[0];
+  if (pdfFile) fd.append('pdf', pdfFile);
+  if (csvFile) fd.append('csv', csvFile);
 
   try {
     const res  = await fetch('/upload', { method: 'POST', body: fd });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    let data;
+    try { data = await res.json(); } catch { throw new Error(`Erro do servidor (${res.status})`); }
+    if (!res.ok || data.error) throw new Error(data.error || `Erro ${res.status}`);
 
     sessionId    = data.session_id;
     globalHasPdf = data.has_pdf;
@@ -361,8 +364,9 @@ document.getElementById('btn-compare').addEventListener('click', async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionId, caixas }),
     });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    let data;
+    try { data = await res.json(); } catch { throw new Error(`Erro do servidor (${res.status})`); }
+    if (!res.ok || data.error) throw new Error(data.error || `Erro ${res.status}`);
 
     resultadosGlobais = data.resultados;
     globalHasPdf      = data.has_pdf ?? globalHasPdf;
