@@ -4,12 +4,17 @@ import re
 import io
 import json
 import uuid
+import logging
 import tempfile
 import threading
+import traceback
 import webbrowser
 from collections import Counter
 from flask import Flask, render_template, request, jsonify, send_file
 import pdfplumber
+
+logging.basicConfig(stream=sys.stderr, level=logging.INFO,
+                    format='%(asctime)s %(levelname)s %(message)s')
 
 # ── Caminho base: funciona tanto em modo dev quanto como .exe (PyInstaller) ───
 if getattr(sys, 'frozen', False):
@@ -246,6 +251,7 @@ _session_data = {}  # armazenamento em memória simples
 
 @app.errorhandler(Exception)
 def handle_exception(e):
+    logging.error(traceback.format_exc())
     return jsonify({'error': str(e)}), 500
 
 @app.errorhandler(404)
@@ -274,12 +280,17 @@ def upload():
     try:
         if has_pdf:
             pdf_bytes = pdf_file.read()
+            logging.info(f'PDF recebido: {len(pdf_bytes)} bytes')
             pdf_data = parse_pdf(pdf_bytes)
+            logging.info(f'PDF parseado: {list(pdf_data.keys())}')
         else:
-            pdf_bytes = b'placeholder'
+            pdf_bytes = b''
             pdf_data = {}
+        logging.info(f'CSV recebido: {len(csv_bytes)} bytes')
         csv_ok, csv_all = parse_csv(csv_bytes)
+        logging.info(f'CSV parseado: caixas={list(csv_ok.keys())}')
     except Exception as e:
+        logging.error(traceback.format_exc())
         return jsonify({'error': f'Erro ao processar arquivos: {str(e)}'}), 500
 
     # Descobrir caixas disponíveis
