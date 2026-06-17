@@ -3,6 +3,7 @@ import sys
 import re
 import io
 import json
+import uuid
 import tempfile
 import threading
 import webbrowser
@@ -243,6 +244,10 @@ def comparar(pdf_data, csv_ok, csv_all, caixas_selecionadas):
 
 _session_data = {}  # armazenamento em memória simples
 
+@app.errorhandler(Exception)
+def handle_exception(e):
+    return jsonify({'error': str(e)}), 500
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -276,7 +281,7 @@ def upload():
     caixas_so_pdf = sorted(caixas_pdf - caixas_csv)
     caixas_so_csv = sorted(caixas_csv - caixas_pdf) if has_pdf else []
 
-    session_id = id(csv_bytes)
+    session_id = str(uuid.uuid4())
     _session_data[session_id] = {
         'pdf_data': pdf_data,
         'csv_ok': csv_ok,
