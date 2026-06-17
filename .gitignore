@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# PyInstaller
+*.spec
+dist/
+build/
+
+# Ambientes virtuais
+venv/
+.venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.cursor
+
+# Arquivos de dados (não subir arquivos pessoais)
+*.pdf
+*.csv
+*.txt
+!README.md
+
+# OS
+.DS_Store
+Thumbs.db

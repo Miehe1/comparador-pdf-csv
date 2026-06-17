@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comparador PDF vs CSV — Caixas</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<style>
+  :root {
+    --primary: #1a56db;
+    --danger:  #e02424;
+    --success: #057a55;
+    --warning: #c27803;
+    --bg:      #f8fafc;
+  }
+  body { background: var(--bg); font-family: 'Segoe UI', system-ui, sans-serif; }
+
+  .hero {
+    background: linear-gradient(135deg, #1a56db 0%, #1e429f 100%);
+    color: #fff;
+    padding: 2.5rem 0 2rem;
+  }
+  .hero h1 { font-size: 1.8rem; font-weight: 700; }
+  .hero p  { opacity: .85; margin-bottom: 0; }
+
+  .card { border: none; box-shadow: 0 1px 4px rgba(0,0,0,.08); border-radius: 12px; }
+  .card-header { background: #fff; border-bottom: 1px solid #e5e7eb; border-radius: 12px 12px 0 0 !important; font-weight: 600; }
+
+  .drop-zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 10px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: .2s;
+    background: #f8fafc;
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: #eff6ff; }
+  .drop-zone i { font-size: 2rem; color: #94a3b8; display: block; margin-bottom: .5rem; }
+  .drop-zone.has-file { border-color: var(--success); background: #f0fdf4; }
+  .drop-zone.has-file i { color: var(--success); }
+
+  .badge-caixa {
+    display: inline-flex; align-items: center; gap: .4rem;
+    background: #eff6ff; color: var(--primary);
+    border: 1px solid #bfdbfe; border-radius: 8px;
+    padding: .35rem .75rem; font-weight: 600; font-size: .9rem;
+    cursor: pointer; transition: .15s; user-select: none;
+  }
+  .badge-caixa:hover { background: #dbeafe; }
+  .badge-caixa.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .badge-caixa input { display: none; }
+
+  .stat-box {
+    border-radius: 8px; padding: .75rem 1rem;
+    display: flex; flex-direction: column;
+  }
+  .stat-box .label { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; opacity: .7; }
+  .stat-box .value { font-size: 1.5rem; font-weight: 700; }
+
+  .stat-ok    { background: #f0fdf4; color: var(--success); }
+  .stat-warn  { background: #fffbeb; color: var(--warning); }
+  .stat-err   { background: #fef2f2; color: var(--danger);  }
+  .stat-info  { background: #eff6ff; color: var(--primary); }
+
+  .section-title {
+    font-size: .7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .1em; color: #6b7280; margin: 1.5rem 0 .5rem;
+  }
+
+  table { font-size: .875rem; }
+  th { font-weight: 600; white-space: nowrap; background: #f8fafc; }
+  td.valor { font-variant-numeric: tabular-nums; text-align: right; }
+
+  .tag-prod {
+    display: inline-block; border-radius: 5px; padding: .1rem .45rem;
+    font-size: .78rem; font-weight: 600;
+  }
+  .tag-mastercard  { background: #fef3c7; color: #92400e; }
+  .tag-visa        { background: #ede9fe; color: #5b21b6; }
+  .tag-maestro     { background: #dbeafe; color: #1e40af; }
+  .tag-elo         { background: #fce7f3; color: #9d174d; }
+  .tag-pix         { background: #d1fae5; color: #065f46; }
+  .tag-default     { background: #f1f5f9; color: #475569; }
+
+  .caixa-section { border-left: 4px solid var(--primary); padding-left: 1rem; margin-bottom: 2rem; }
+  .caixa-title   { font-weight: 700; font-size: 1.1rem; color: var(--primary); }
+
+  #step-caixas, #step-results { display: none; }
+
+  .spinner-wrap { display: flex; align-items: center; gap: .5rem; color: #6b7280; }
+
+  .alert-faltando {
+    background: #fef2f2; border: 1px solid #fecaca;
+    border-radius: 8px; padding: .6rem .9rem;
+    color: var(--danger); font-weight: 600; font-size: .92rem;
+  }
+  .alert-ok {
+    background: #f0fdf4; border: 1px solid #bbf7d0;
+    border-radius: 8px; padding: .6rem .9rem;
+    color: var(--success); font-weight: 600; font-size: .92rem;
+  }
+
+  .view-mode-btn {
+    flex: 1; max-width: 220px;
+    border: 2px solid #e2e8f0; border-radius: 10px;
+    padding: .75rem 1.1rem; cursor: pointer;
+    font-weight: 600; font-size: .9rem;
+    transition: .15s; user-select: none;
+    color: #475569; background: #fff;
+  }
+  .view-mode-btn:hover   { border-color: var(--primary); color: var(--primary); }
+  .view-mode-btn.selected { border-color: var(--primary); background: #eff6ff; color: var(--primary); }
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="container">
+    <h1><i class="bi bi-arrow-left-right me-2"></i>Comparador PDF × CSV</h1>
+    <p>Identifica vendas que estão no CSV mas <strong>não aparecem no PDF</strong>.</p>
+  </div>
+</div>
+
+<div class="container py-4" style="max-width:960px">
+
+  <!-- STEP 1: Upload -->
+  <div class="card mb-4" id="step-upload">
+    <div class="card-header py-3">
+      <i class="bi bi-upload me-2 text-primary"></i>1. Enviar arquivos
+    </div>
+    <div class="card-body p-4">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">
+            Relatório ERP
+            <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1" style="font-weight:500;font-size:.75rem">opcional</span>
+          </label>
+          <div class="drop-zone" id="drop-pdf" onclick="document.getElementById('inp-pdf').click()">
+            <i class="bi bi-file-earmark-pdf"></i>
+            <span id="lbl-pdf">Clique ou arraste o PDF aqui</span>
+          </div>
+          <input type="file" id="inp-pdf" accept=".pdf" hidden>
+          <small class="text-muted d-block mt-1">Sem PDF: só exibe relatório de negadas/canceladas do CSV.</small>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Transações detalhadas <span class="text-muted">(CSV)</span></label>
+          <div class="drop-zone" id="drop-csv" onclick="document.getElementById('inp-csv').click()">
+            <i class="bi bi-file-earmark-spreadsheet"></i>
+            <span id="lbl-csv">Clique ou arraste o CSV aqui</span>
+          </div>
+          <input type="file" id="inp-csv" accept=".csv" hidden>
+        </div>
+      </div>
+      <div class="mt-3 d-flex align-items-center gap-3">
+        <button class="btn btn-primary px-4" id="btn-upload" disabled>
+          <i class="bi bi-search me-1"></i>Detectar caixas
+        </button>
+        <span id="upload-status" class="text-muted small"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: Seleção de caixas -->
+  <div class="card mb-4" id="step-caixas">
+    <div class="card-header py-3">
+      <i class="bi bi-grid-3x3-gap me-2 text-primary"></i>2. Selecionar caixas e modo de visualização
+    </div>
+    <div class="card-body p-4">
+
+      <!-- Modo de visualização -->
+      <p class="fw-semibold mb-2">Modo de visualização</p>
+      <div class="d-flex gap-2 mb-4">
+        <label class="view-mode-btn selected" id="lbl-geral">
+          <input type="radio" name="viewmode" value="geral" checked hidden>
+          <i class="bi bi-layers me-1"></i>Geral
+          <small class="d-block opacity-75" style="font-weight:400">Todos os caixas em um único resumo</small>
+        </label>
+        <label class="view-mode-btn" id="lbl-porcaixa">
+          <input type="radio" name="viewmode" value="porcaixa" hidden>
+          <i class="bi bi-box me-1"></i>Por caixa
+          <small class="d-block opacity-75" style="font-weight:400">Card separado para cada caixa</small>
+        </label>
+      </div>
+
+      <!-- Seleção de caixas -->
+      <p class="fw-semibold mb-2" id="lbl-caixas-encontrados">Caixas encontrados:</p>
+      <div id="caixas-list" class="d-flex flex-wrap gap-2 mb-2"></div>
+      <div class="d-flex gap-2 mt-2 mb-3">
+        <button class="btn btn-sm btn-outline-secondary" onclick="toggleAll(true)">Selecionar todos</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="toggleAll(false)">Desmarcar todos</button>
+      </div>
+      <div id="caixas-extras" class="text-muted small mb-3"></div>
+
+      <button class="btn btn-primary px-4" id="btn-compare" disabled>
+        <i class="bi bi-play-circle me-1"></i>Comparar
+      </button>
+      <span id="compare-status" class="ms-3 text-muted small"></span>
+    </div>
+  </div>
+
+  <!-- STEP 3: Resultados -->
+  <div id="step-results">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="mb-0 fw-bold"><i class="bi bi-bar-chart-line me-2 text-primary"></i>Resultados</h5>
+      <button class="btn btn-sm btn-outline-secondary" onclick="exportar()">
+        <i class="bi bi-download me-1"></i>Exportar TXT
+      </button>
+    </div>
+    <div id="results-container"></div>
+  </div>
+
+</div>
+
+<script>
+let sessionId    = null;
+let resultadosGlobais = [];
+let viewMode     = 'geral'; // 'geral' | 'porcaixa'
+let globalHasPdf = true;
+
+// ── Modo de visualização ───────────────────────────────────────────────────────
+document.querySelectorAll('input[name=viewmode]').forEach(radio => {
+  radio.addEventListener('change', e => {
+    viewMode = e.target.value;
+    document.querySelectorAll('.view-mode-btn').forEach(l => l.classList.remove('selected'));
+    e.target.closest('label').classList.add('selected');
+    // Re-renderiza se já há resultados
+    if (resultadosGlobais.length) renderResultados(resultadosGlobais);
+  });
+});
+
+// ── File inputs ────────────────────────────────────────────────────────────────
+function setupDrop(dropId, inputId, lblId, iconClass) {
+  const drop  = document.getElementById(dropId);
+  const input = document.getElementById(inputId);
+  const lbl   = document.getElementById(lblId);
+
+  input.addEventListener('change', () => {
+    if (input.files[0]) setFile(drop, lbl, input.files[0].name, iconClass);
+  });
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('dragover');
+    const dt = new DataTransfer();
+    dt.items.add(e.dataTransfer.files[0]);
+    input.files = dt.files;
+    setFile(drop, lbl, e.dataTransfer.files[0].name, iconClass);
+  });
+}
+function setFile(drop, lbl, name, iconClass) {
+  drop.classList.add('has-file');
+  drop.querySelector('i').className = `bi ${iconClass}`;
+  lbl.textContent = name;
+  checkUploadReady();
+}
+function checkUploadReady() {
+  const hasCsv = document.getElementById('inp-csv').files.length > 0;
+  document.getElementById('btn-upload').disabled = !hasCsv;
+}
+
+setupDrop('drop-pdf', 'inp-pdf', 'lbl-pdf', 'bi-file-earmark-check-fill');
+setupDrop('drop-csv', 'inp-csv', 'lbl-csv', 'bi-file-earmark-check-fill');
+
+// ── Upload ─────────────────────────────────────────────────────────────────────
+document.getElementById('btn-upload').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-upload');
+  const status = document.getElementById('upload-status');
+  btn.disabled = true;
+  status.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Processando...';
+
+  const fd = new FormData();
+  fd.append('pdf', document.getElementById('inp-pdf').files[0]);
+  fd.append('csv', document.getElementById('inp-csv').files[0]);
+
+  try {
+    const res  = await fetch('/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    sessionId    = data.session_id;
+    globalHasPdf = data.has_pdf;
+    status.textContent = '';
+    btn.disabled = false;
+
+    renderCaixas(data);
+    document.getElementById('step-caixas').style.display = 'block';
+    document.getElementById('step-caixas').scrollIntoView({ behavior: 'smooth' });
+  } catch (e) {
+    status.textContent = '❌ ' + e.message;
+    btn.disabled = false;
+  }
+});
+
+// ── Caixas ─────────────────────────────────────────────────────────────────────
+function renderCaixas(data) {
+  const list = document.getElementById('caixas-list');
+  list.innerHTML = '';
+
+  data.caixas_comuns.forEach(n => {
+    const pdf = data.resumo_pdf[n] || 0;
+    const csv = data.resumo_csv[n] || 0;
+    const label = document.createElement('label');
+    label.className = 'badge-caixa selected';
+    const info = data.has_pdf
+      ? `<small class="opacity-75">(PDF: ${pdf} | CSV: ${csv})</small>`
+      : `<small class="opacity-75">(CSV: ${csv})</small>`;
+    label.innerHTML = `<input type="checkbox" value="${n}" checked>
+      <i class="bi bi-box"></i> Caixa ${String(n).padStart(2,'0')}
+      ${info}`;
+    label.querySelector('input').addEventListener('change', e => {
+      label.classList.toggle('selected', e.target.checked);
+      updateCompareBtn();
+    });
+    list.appendChild(label);
+  });
+
+  document.getElementById('lbl-caixas-encontrados').innerHTML = data.has_pdf
+    ? 'Caixas encontrados em <strong>ambos</strong> os arquivos:'
+    : 'Caixas encontrados no <strong>CSV</strong>:';
+
+  const extras = document.getElementById('caixas-extras');
+  let msg = '';
+  if (data.caixas_so_pdf.length)
+    msg += `⚠️ Só no PDF (sem dados no CSV): Caixa ${data.caixas_so_pdf.map(n=>`${n}`).join(', ')}. `;
+  if (data.caixas_so_csv.length)
+    msg += `⚠️ Só no CSV (sem dados no PDF): Caixa ${data.caixas_so_csv.map(n=>`${n}`).join(', ')}. `;
+  extras.textContent = msg;
+
+  updateCompareBtn();
+}
+
+function toggleAll(state) {
+  document.querySelectorAll('#caixas-list input[type=checkbox]').forEach(cb => {
+    cb.checked = state;
+    cb.closest('label').classList.toggle('selected', state);
+  });
+  updateCompareBtn();
+}
+
+function updateCompareBtn() {
+  const any = [...document.querySelectorAll('#caixas-list input[type=checkbox]')].some(cb => cb.checked);
+  document.getElementById('btn-compare').disabled = !any;
+}
+
+// ── Comparação ─────────────────────────────────────────────────────────────────
+document.getElementById('btn-compare').addEventListener('click', async () => {
+  const btn    = document.getElementById('btn-compare');
+  const status = document.getElementById('compare-status');
+  btn.disabled = true;
+  status.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Comparando...';
+
+  const caixas = [...document.querySelectorAll('#caixas-list input:checked')].map(cb => cb.value);
+
+  try {
+    const res  = await fetch('/compare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, caixas }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    resultadosGlobais = data.resultados;
+    globalHasPdf      = data.has_pdf ?? globalHasPdf;
+    renderResultados(data.resultados);
+    status.textContent = '';
+    btn.disabled = false;
+    document.getElementById('step-results').style.display = 'block';
+    document.getElementById('step-results').scrollIntoView({ behavior: 'smooth' });
+  } catch (e) {
+    status.textContent = '❌ ' + e.message;
+    btn.disabled = false;
+  }
+});
+
+// ── Helpers de renderização ────────────────────────────────────────────────────
+function tagProduto(prod) {
+  const p = (prod || '').toLowerCase();
+  let cls = 'tag-default';
+  if (p.includes('master')) cls = 'tag-mastercard';
+  else if (p.includes('visa')) cls = 'tag-visa';
+  else if (p.includes('maestro')) cls = 'tag-maestro';
+  else if (p.includes('elo')) cls = 'tag-elo';
+  else if (p.includes('pix')) cls = 'tag-pix';
+  return `<span class="tag-prod ${cls}">${prod}</span>`;
+}
+
+function fmtValor(v) {
+  return 'R$\u00a0' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function tagEstado(estado) {
+  const e = (estado || '').toLowerCase();
+  if (e.includes('efetuada'))  return `<span class="badge bg-success-subtle text-success-emphasis">${estado}</span>`;
+  if (e.includes('cancelada')) return `<span class="badge bg-warning-subtle text-warning-emphasis">${estado}</span>`;
+  return `<span class="badge bg-danger-subtle text-danger-emphasis">${estado}</span>`;
+}
+
+// ── Motor de tabela com filtro + sort ─────────────────────────────────────────
+class FilterTable {
+  constructor(wrap, rows, cols, footerFn) {
+    this.allRows = rows;
+    this.cols    = cols;       // [{key, label, type:'text'|'select'|'valor'|'caixa', align?}]
+    this.footerFn = footerFn;  // fn(filteredRows) → HTML string para tfoot
+    this.filters = {};
+    this.sortKey = null;
+    this.sortDir = 1;
+    this.wrap    = wrap;
+    this._build();
+  }
+
+  _build() {
+    this.wrap.innerHTML = '';
+    const tableWrap = document.createElement('div');
+    tableWrap.className = 'table-responsive';
+    const table = document.createElement('table');
+    table.className = 'table table-hover align-middle mb-0';
+
+    // thead
+    const thead = document.createElement('thead');
+
+    // Linha de cabeçalho com sort
+    const trHead = document.createElement('tr');
+    trHead.innerHTML = '<th class="text-muted" style="width:2rem">#</th>';
+    this.cols.forEach(col => {
+      const th = document.createElement('th');
+      th.style.cursor = 'pointer';
+      th.style.whiteSpace = 'nowrap';
+      if (col.align === 'end') th.classList.add('text-end');
+      th.dataset.key = col.key;
+      th.innerHTML = `${col.label} <i class="bi bi-chevron-expand text-muted" style="font-size:.7rem"></i>`;
+      th.addEventListener('click', () => this._toggleSort(col.key));
+      trHead.appendChild(th);
+    });
+    thead.appendChild(trHead);
+
+    // Linha de filtros
+    const trFilt = document.createElement('tr');
+    trFilt.style.background = '#f8fafc';
+    const tdNum = document.createElement('td');
+    tdNum.innerHTML = `<small class="text-muted" id="${this._id('count')}"></small>`;
+    trFilt.appendChild(tdNum);
+
+    this.cols.forEach(col => {
+      const td = document.createElement('td');
+      if (col.align === 'end') td.classList.add('text-end');
+      td.appendChild(this._buildFilterCtrl(col));
+      trFilt.appendChild(td);
+    });
+    thead.appendChild(trFilt);
+    table.appendChild(thead);
+
+    // tbody
+    this.tbody = document.createElement('tbody');
+    table.appendChild(this.tbody);
+
+    // tfoot
+    this.tfoot = document.createElement('tfoot');
+    table.appendChild(this.tfoot);
+
+    tableWrap.appendChild(table);
+    this.wrap.appendChild(tableWrap);
+    this._update();
+  }
+
+  _id(s) { return `ft-${this._uid}-${s}`; }
+
+  // Permite definir filtro externamente (ex: pills)
+  setFilter(key, value) {
+    this.filters[key] = value;
+    this._update();
+  }
+
+  _buildFilterCtrl(col) {
+    // Coluna com filtro gerenciado externamente (pills) → célula vazia
+    if (col.filterHidden) {
+      const span = document.createElement('span');
+      span.className = 'text-muted small';
+      span.textContent = '↑ pills';
+      return span;
+    }
+    if (col.type === 'select' || col.type === 'caixa') {
+      const sel = document.createElement('select');
+      sel.className = 'form-select form-select-sm';
+      sel.style.minWidth = '100px';
+      const vals = [...new Set(this.allRows.map(r => String(r[col.key] ?? '')))].sort();
+      sel.innerHTML = `<option value="">Todos</option>` +
+        vals.map(v => `<option value="${v}">${col.type==='caixa' ? 'Cx '+String(v).padStart(2,'0') : v}</option>`).join('');
+      sel.addEventListener('change', () => { this.filters[col.key] = sel.value; this._update(); });
+      return sel;
+    }
+    if (col.type === 'valor') {
+      const wrap = document.createElement('div');
+      wrap.className = 'd-flex gap-1 align-items-center';
+      const mn = document.createElement('input');
+      mn.type = 'number'; mn.placeholder = 'Min'; mn.className = 'form-control form-control-sm';
+      mn.style.width = '72px';
+      const mx = document.createElement('input');
+      mx.type = 'number'; mx.placeholder = 'Max'; mx.className = 'form-control form-control-sm';
+      mx.style.width = '72px';
+      const upd = () => { this.filters[col.key] = {min: mn.value, max: mx.value}; this._update(); };
+      mn.addEventListener('input', upd); mx.addEventListener('input', upd);
+      wrap.append(mn, mx);
+      return wrap;
+    }
+    // text
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.placeholder = 'Filtrar...';
+    inp.className = 'form-control form-control-sm';
+    inp.style.minWidth = '80px';
+    inp.addEventListener('input', () => { this.filters[col.key] = inp.value.trim().toLowerCase(); this._update(); });
+    return inp;
+  }
+
+  _toggleSort(key) {
+    if (this.sortKey === key) this.sortDir *= -1;
+    else { this.sortKey = key; this.sortDir = 1; }
+    // Atualiza ícones
+    this.wrap.querySelectorAll('thead tr:first-child th[data-key]').forEach(th => {
+      const ico = th.querySelector('i');
+      if (th.dataset.key === key) {
+        ico.className = `bi bi-chevron-${this.sortDir===1?'up':'down'} text-primary`;
+      } else {
+        ico.className = 'bi bi-chevron-expand text-muted';
+      }
+    });
+    this._update();
+  }
+
+  _getFiltered() {
+    return this.allRows.filter(row => {
+      return this.cols.every(col => {
+        const f = this.filters[col.key];
+        if (f === undefined || f === null || f === '') return true;
+        const val = row[col.key];
+        // Set → multi-seleção (pills)
+        if (f instanceof Set) return f.size === 0 || f.has(String(val ?? ''));
+        if (col.type === 'valor') {
+          const n = parseFloat(val) || 0;
+          if (f.min !== '' && n < parseFloat(f.min)) return false;
+          if (f.max !== '' && n > parseFloat(f.max)) return false;
+          return true;
+        }
+        return String(val ?? '').toLowerCase().includes(String(f).toLowerCase());
+      });
+    });
+  }
+
+  _getSorted(rows) {
+    if (!this.sortKey) return rows;
+    const k = this.sortKey;
+    const d = this.sortDir;
+    return [...rows].sort((a, b) => {
+      const av = a[k], bv = b[k];
+      if (typeof av === 'number') return (av - bv) * d;
+      return String(av ?? '').localeCompare(String(bv ?? '')) * d;
+    });
+  }
+
+  _update() {
+    const filtered = this._getSorted(this._getFiltered());
+
+    // Atualiza contador
+    const cnt = this.wrap.querySelector(`#${this._id('count')}`);
+    if (cnt) cnt.textContent = `${filtered.length}/${this.allRows.length}`;
+
+    // Renderiza linhas
+    this.tbody.innerHTML = filtered.map((row, i) => {
+      const cells = this.cols.map(col => {
+        let html = '';
+        if (col.type === 'caixa')  html = `<span class="badge bg-primary-subtle text-primary-emphasis">Cx ${String(row[col.key]??'').padStart(2,'0')}</span>`;
+        else if (col.key === 'produto') html = tagProduto(row[col.key]);
+        else if (col.key === 'estado')  html = tagEstado(row[col.key]);
+        else if (col.type === 'valor')  html = `<span class="fw-semibold">${fmtValor(row[col.key])}</span>`;
+        else if (col.key === 'hora' || col.key === 'cupom' || col.key === 'nsu')
+          html = `<code>${row[col.key] || '—'}</code>`;
+        else html = row[col.key] ?? '—';
+        return `<td${col.align==='end' ? ' class="text-end"':''}>${html}</td>`;
+      }).join('');
+      return `<tr><td class="text-muted">${i+1}</td>${cells}</tr>`;
+    }).join('') || '<tr><td colspan="99" class="text-center text-muted py-3">Nenhum resultado para os filtros aplicados.</td></tr>';
+
+    // Footer
+    if (this.footerFn) {
+      this.tfoot.innerHTML = this.footerFn(filtered);
+    }
+  }
+}
+// Uid único por instância
+let _ftUid = 0;
+Object.defineProperty(FilterTable.prototype, '_uid', { get() { if (!this.__uid) this.__uid = ++_ftUid; return this.__uid; } });
+
+// ── Criação das tabelas filtráveis ────────────────────────────────────────────
+function tabelaFaltantes(faltantes, showCaixa, mountPoint) {
+  if (!faltantes.length) {
+    mountPoint.innerHTML = `<div class="alert-ok"><i class="bi bi-check-circle me-1"></i>Nenhuma transação faltando — PDF e CSV estão alinhados.</div>`;
+    return;
+  }
+
+  const totalOriginal = faltantes.reduce((s, f) => s + f.valor, 0);
+  const banner = document.createElement('div');
+  banner.className = 'alert-faltando mb-3';
+  banner.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i>
+    ${faltantes.length} transação(ões) efetuada(s) no CSV não encontrada(s) no PDF
+    — total de ${fmtValor(totalOriginal)}`;
+  mountPoint.appendChild(banner);
+
+  const wrap = document.createElement('div');
+  mountPoint.appendChild(wrap);
+
+  const cols = [
+    ...(showCaixa ? [{key:'_caixa', label:'Caixa', type:'caixa'}] : []),
+    {key:'hora',    label:'Hora',         type:'text'},
+    {key:'produto', label:'Produto',      type:'select'},
+    {key:'desc',    label:'Tipo',         type:'select'},
+    {key:'valor',   label:'Valor (R$)',   type:'valor', align:'end'},
+    {key:'nsu',     label:'NSU',          type:'text'},
+    {key:'cupom',   label:'Cupom Fiscal', type:'text'},
+  ];
+
+  new FilterTable(wrap, faltantes, cols, rows => {
+    const tot = rows.reduce((s, r) => s + r.valor, 0);
+    const span = showCaixa ? cols.length - 1 : cols.length - 1;
+    return `<tr class="table-light fw-bold">
+      <td colspan="${span+1}" class="text-end">Total filtrado</td>
+      <td class="text-end text-danger">${fmtValor(tot)}</td>
+      <td colspan="2"></td>
+    </tr>`;
+  });
+}
+
+function tabelaNaoEfetuadas(lista, showCaixa, mountPoint) {
+  if (!lista.length) {
+    mountPoint.innerHTML = `<div class="alert-ok"><i class="bi bi-check-circle me-1"></i>Nenhuma transação negada ou cancelada.</div>`;
+    return;
+  }
+
+  // ── Pills de estado ────────────────────────────────────────────────────────
+  const porEstado = {};
+  lista.forEach(r => { porEstado[r.estado] = (porEstado[r.estado]||0) + 1; });
+
+  // Conjunto de estados selecionados (todos por padrão)
+  const selectedEstados = new Set(Object.keys(porEstado));
+
+  const pillsWrap = document.createElement('div');
+  pillsWrap.className = 'd-flex flex-wrap gap-2 mb-3 align-items-center';
+
+  const lblPills = document.createElement('small');
+  lblPills.className = 'text-muted me-1';
+  lblPills.textContent = 'Filtrar por estado:';
+  pillsWrap.appendChild(lblPills);
+
+  const pillEls = {}; // estado → elemento pill
+
+  Object.entries(porEstado)
+    .sort((a, b) => b[1] - a[1])  // mais frequente primeiro
+    .forEach(([estado, qtd]) => {
+      const isCancelada = estado.toLowerCase().includes('cancelada');
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.dataset.estado = estado;
+      pill.className = 'pill-estado active';
+      pill.style.cssText = `
+        display:inline-flex; align-items:center; gap:.3rem;
+        border-radius:999px; padding:.3rem .8rem; font-size:.8rem; font-weight:600;
+        cursor:pointer; border:2px solid; transition:.15s; user-select:none;
+      `;
+      pill.innerHTML = `<span class="pill-dot" style="width:8px;height:8px;border-radius:50%;display:inline-block"></span>
+        ${estado} <span class="pill-count">(${qtd})</span>`;
+
+      const colorCancelada = { bg:'#fffbeb', border:'#f59e0b', dot:'#d97706', text:'#92400e' };
+      const colorNegada    = { bg:'#fef2f2', border:'#f87171', dot:'#ef4444', text:'#991b1b' };
+      const c = isCancelada ? colorCancelada : colorNegada;
+
+      function applyStyle(active) {
+        if (active) {
+          pill.style.background   = c.bg;
+          pill.style.borderColor  = c.border;
+          pill.style.color        = c.text;
+          pill.querySelector('.pill-dot').style.background = c.dot;
+          pill.style.opacity = '1';
+        } else {
+          pill.style.background  = '#f8fafc';
+          pill.style.borderColor = '#cbd5e1';
+          pill.style.color       = '#94a3b8';
+          pill.querySelector('.pill-dot').style.background = '#cbd5e1';
+          pill.style.opacity = '.7';
+        }
+      }
+      applyStyle(true);
+
+      pill.addEventListener('click', () => {
+        const on = selectedEstados.has(estado);
+        if (on) {
+          // Não permite desmarcar o último
+          if (selectedEstados.size === 1) return;
+          selectedEstados.delete(estado);
+        } else {
+          selectedEstados.add(estado);
+        }
+        applyStyle(!on);
+        // Selecionar todos = Set vazio (sem restrição) para melhor performance,
+        // mas mantemos o Set com todos para controle dos pills
+        ft.setFilter('estado', new Set(selectedEstados));
+        updatePillCounts();
+      });
+
+      pillEls[estado] = pill;
+      pillsWrap.appendChild(pill);
+    });
+
+  // Botão "Todos / Nenhum"
+  const btnToggleAll = document.createElement('button');
+  btnToggleAll.type = 'button';
+  btnToggleAll.className = 'btn btn-sm btn-outline-secondary ms-1';
+  btnToggleAll.textContent = 'Desmarcar todos';
+  btnToggleAll.addEventListener('click', () => {
+    const allSelected = selectedEstados.size === Object.keys(porEstado).length;
+    if (allSelected) {
+      // Mantém só o primeiro para não ficar vazio
+      const first = Object.keys(porEstado)[0];
+      selectedEstados.clear();
+      selectedEstados.add(first);
+    } else {
+      Object.keys(porEstado).forEach(e => selectedEstados.add(e));
+    }
+    Object.entries(pillEls).forEach(([e, el]) => {
+      const active = selectedEstados.has(e);
+      const isCan  = e.toLowerCase().includes('cancelada');
+      const c      = isCan
+        ? { bg:'#fffbeb', border:'#f59e0b', dot:'#d97706', text:'#92400e' }
+        : { bg:'#fef2f2', border:'#f87171', dot:'#ef4444', text:'#991b1b' };
+      if (active) {
+        el.style.background = c.bg; el.style.borderColor = c.border;
+        el.style.color = c.text; el.querySelector('.pill-dot').style.background = c.dot;
+        el.style.opacity = '1';
+      } else {
+        el.style.background = '#f8fafc'; el.style.borderColor = '#cbd5e1';
+        el.style.color = '#94a3b8'; el.querySelector('.pill-dot').style.background = '#cbd5e1';
+        el.style.opacity = '.7';
+      }
+    });
+    ft.setFilter('estado', new Set(selectedEstados));
+    btnToggleAll.textContent = selectedEstados.size === Object.keys(porEstado).length
+      ? 'Desmarcar todos' : 'Marcar todos';
+    updatePillCounts();
+  });
+  pillsWrap.appendChild(btnToggleAll);
+  mountPoint.appendChild(pillsWrap);
+
+  // ── Tabela ─────────────────────────────────────────────────────────────────
+  const wrap = document.createElement('div');
+  mountPoint.appendChild(wrap);
+
+  const cols = [
+    ...(showCaixa ? [{key:'_caixa', label:'Caixa', type:'caixa'}] : []),
+    {key:'hora',    label:'Hora',         type:'text'},
+    {key:'produto', label:'Produto',      type:'select'},
+    {key:'desc',    label:'Tipo',         type:'select'},
+    {key:'valor',   label:'Valor (R$)',   type:'valor', align:'end'},
+    {key:'nsu',     label:'NSU',          type:'text'},
+    {key:'cupom',   label:'Cupom Fiscal', type:'text'},
+    {key:'estado',  label:'Estado',       type:'select', filterHidden: true},
+  ];
+
+  const ft = new FilterTable(wrap, lista, cols, null);
+  ft.setFilter('estado', new Set(selectedEstados));
+
+  // Atualiza contagem nos pills após filtros de outras colunas
+  function updatePillCounts() {
+    // Temporariamente remove o filtro de estado para contar por estado
+    const saved = ft.filters['estado'];
+    ft.filters['estado'] = null;
+    const semEstadoFiltro = ft._getFiltered();
+    ft.filters['estado'] = saved;
+    const counts = {};
+    semEstadoFiltro.forEach(r => { counts[r.estado] = (counts[r.estado]||0) + 1; });
+    Object.entries(pillEls).forEach(([e, el]) => {
+      const n = counts[e] || 0;
+      el.querySelector('.pill-count').textContent = `(${n})`;
+    });
+  }
+}
+
+function cardStats(pdfTot, csvTot, csvOk, faltNum) {
+  if (!globalHasPdf) {
+    return `
+      <div class="row g-2 mb-4">
+        <div class="col-6 col-md-4"><div class="stat-box stat-info">
+          <span class="label">CSV (total)</span><span class="value">${csvTot}</span>
+        </div></div>
+        <div class="col-6 col-md-4"><div class="stat-box stat-ok">
+          <span class="label">Efetuadas</span><span class="value">${csvOk}</span>
+        </div></div>
+        <div class="col-6 col-md-4"><div class="stat-box stat-warn">
+          <span class="label">Negadas / Canceladas</span><span class="value">${csvTot - csvOk}</span>
+        </div></div>
+      </div>`;
+  }
+  return `
+    <div class="row g-2 mb-4">
+      <div class="col-6 col-md-3"><div class="stat-box stat-info">
+        <span class="label">PDF (registros)</span><span class="value">${pdfTot}</span>
+      </div></div>
+      <div class="col-6 col-md-3"><div class="stat-box stat-info">
+        <span class="label">CSV (total)</span><span class="value">${csvTot}</span>
+      </div></div>
+      <div class="col-6 col-md-3"><div class="stat-box stat-ok">
+        <span class="label">CSV (efetuadas)</span><span class="value">${csvOk}</span>
+      </div></div>
+      <div class="col-6 col-md-3"><div class="stat-box ${faltNum > 0 ? 'stat-err' : 'stat-ok'}">
+        <span class="label">Faltando no PDF</span><span class="value">${faltNum}</span>
+      </div></div>
+    </div>`;
+}
+
+// ── Render resultados ──────────────────────────────────────────────────────────
+function renderResultados(resultados) {
+  const container = document.getElementById('results-container');
+  container.innerHTML = '';
+
+  if (viewMode === 'geral') {
+    renderGeral(resultados, container);
+  } else {
+    resultados.forEach(r => renderCaixaCard(r, container));
+  }
+}
+
+let _tabIdx = 0;
+
+function buildCard(container, titulo, badgeTxt, badgeCls, statsHtml, sobraHtml, mountFalt, mountNeg) {
+  const id     = ++_tabIdx;
+  const hasPdf = globalHasPdf;
+
+  // Aba inicial: se tem PDF, começa em "Faltando"; se não, começa em "Negadas"
+  const tabFaltActive = hasPdf ? 'show active' : '';
+  const tabNegActive  = hasPdf ? '' : 'show active';
+  const btnFaltActive = hasPdf ? 'active' : '';
+  const btnNegActive  = hasPdf ? '' : 'active';
+
+  const card = document.createElement('div');
+  card.className = 'card mb-4';
+  card.innerHTML = `
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+      <span class="caixa-title">${titulo}</span>
+      <span class="${badgeCls} fw-semibold">${badgeTxt}</span>
+    </div>
+    <div class="card-body p-0">
+      <div class="px-4 pt-3 pb-0">${statsHtml}</div>
+      <ul class="nav nav-tabs px-4">
+        ${hasPdf ? `
+        <li class="nav-item">
+          <button class="nav-link ${btnFaltActive}" data-bs-toggle="tab" data-bs-target="#tab-falt-${id}">
+            <i class="bi bi-exclamation-triangle me-1 text-danger"></i>Faltando no PDF
+          </button>
+        </li>` : ''}
+        <li class="nav-item">
+          <button class="nav-link ${btnNegActive}" data-bs-toggle="tab" data-bs-target="#tab-neg-${id}">
+            <i class="bi bi-x-circle me-1 text-warning"></i>Negadas / Canceladas
+          </button>
+        </li>
+      </ul>
+      <div class="tab-content p-4">
+        ${hasPdf ? `
+        <div class="tab-pane fade ${tabFaltActive}" id="tab-falt-${id}">
+          <div id="mount-falt-${id}"></div>
+          ${sobraHtml}
+        </div>` : ''}
+        <div class="tab-pane fade ${tabNegActive}" id="tab-neg-${id}">
+          <div id="mount-neg-${id}"></div>
+        </div>
+      </div>
+    </div>`;
+
+  container.appendChild(card);
+
+  if (hasPdf) mountFalt(card.querySelector(`#mount-falt-${id}`));
+  mountNeg(card.querySelector(`#mount-neg-${id}`));
+}
+
+function renderGeral(resultados, container) {
+  const pdfTot     = resultados.reduce((s, r) => s + r.pdf_total, 0);
+  const csvTot     = resultados.reduce((s, r) => s + r.csv_total, 0);
+  const csvOk      = resultados.reduce((s, r) => s + r.csv_efetuadas, 0);
+  const multiCaixa = resultados.length > 1;
+
+  const todosFaltantes = resultados.flatMap(r =>
+    r.faltantes.map(f => ({ ...f, _caixa: r.caixa }))
+  ).sort((a, b) => a.hora.localeCompare(b.hora));
+
+  const todosNeg = resultados.flatMap(r =>
+    (r.nao_efetuadas || []).map(f => ({ ...f, _caixa: r.caixa }))
+  ).sort((a, b) => a.hora.localeCompare(b.hora));
+
+  const totalVal  = todosFaltantes.reduce((s, f) => s + f.valor, 0);
+  const caixasSel = resultados.map(r => `Cx ${String(r.caixa).padStart(2,'0')}`).join(', ');
+  const badgeCls  = todosFaltantes.length > 0 ? 'text-danger' : 'text-success';
+  const badgeTxt  = todosFaltantes.length > 0
+    ? `${todosFaltantes.length} faltando · ${fmtValor(totalVal)}`
+    : '✓ Tudo conferido';
+
+  const sobraHtml = resultados.some(r => r.sobra_pdf.length) ? `
+    <div class="section-title mt-4">Valores no PDF sem correspondência no CSV</div>
+    <ul class="list-unstyled mb-0">
+      ${resultados.flatMap(r => r.sobra_pdf.map(s =>
+        `<li class="text-warning-emphasis">⚠ Cx${r.caixa} — ${fmtValor(s.valor)} (${s.qtd}x) — ${s.tipos.join(', ')}</li>`
+      )).join('')}
+    </ul>` : '';
+
+  buildCard(
+    container,
+    `<i class="bi bi-layers me-1"></i>Visão Geral — ${caixasSel}`,
+    badgeTxt, badgeCls,
+    cardStats(pdfTot, csvTot, csvOk, todosFaltantes.length),
+    sobraHtml,
+    el => tabelaFaltantes(todosFaltantes, multiCaixa, el),
+    el => tabelaNaoEfetuadas(todosNeg, multiCaixa, el)
+  );
+}
+
+function renderCaixaCard(r, container) {
+  const totalFalt   = r.faltantes.length;
+  const totalVal    = r.total_faltando;
+  const faltRows    = r.faltantes.map(f => ({ ...f, _caixa: r.caixa }));
+  const negRows     = (r.nao_efetuadas || []).map(f => ({ ...f, _caixa: r.caixa }));
+  const badgeCls    = totalFalt > 0 ? 'text-danger' : 'text-success';
+  const badgeTxt    = totalFalt > 0 ? `${totalFalt} faltando · ${fmtValor(totalVal)}` : '✓ Tudo conferido';
+
+  const sobraHtml = r.sobra_pdf.length > 0 ? `
+    <div class="section-title mt-4">Valores no PDF sem correspondência no CSV</div>
+    <ul class="list-unstyled mb-0">
+      ${r.sobra_pdf.map(s =>
+        `<li class="text-warning-emphasis">⚠ ${fmtValor(s.valor)} (${s.qtd}x) — ${s.tipos.join(', ')}</li>`
+      ).join('')}
+    </ul>` : '';
+
+  buildCard(
+    container,
+    `<i class="bi bi-box me-1"></i>Caixa ${String(r.caixa).padStart(2,'0')}`,
+    badgeTxt, badgeCls,
+    cardStats(r.pdf_total, r.csv_total, r.csv_efetuadas, totalFalt),
+    sobraHtml,
+    el => tabelaFaltantes(faltRows, false, el),
+    el => tabelaNaoEfetuadas(negRows, false, el)
+  );
+}
+
+// ── Exportar ───────────────────────────────────────────────────────────────────
+async function exportar() {
+  if (!resultadosGlobais.length) return;
+  const res = await fetch('/exportar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ resultados: resultadosGlobais }),
+  });
+  const blob = await res.blob();
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'comparacao_caixas.txt';
+  a.click(); URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>

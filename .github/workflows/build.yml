@@ -1,0 +1,56 @@
+name: Build Windows Executable
+
+on:
+  push:
+    branches: [main, master]
+    tags:    ['v*']
+  workflow_dispatch:   # permite rodar manualmente pelo GitHub
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependências
+        run: |
+          pip install --upgrade pip
+          pip install flask pdfplumber pyinstaller
+
+      - name: Compilar executável
+        run: |
+          pyinstaller `
+            --onefile `
+            --name "ComparadorPDF_CSV" `
+            --add-data "templates;templates" `
+            --hidden-import pdfminer `
+            --hidden-import pdfminer.high_level `
+            --hidden-import pdfminer.layout `
+            --hidden-import pdfminer.pdfpage `
+            --hidden-import pdfminer.converter `
+            --hidden-import charset_normalizer `
+            --collect-all pdfplumber `
+            app.py
+
+      - name: Upload artefato (sempre disponível)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ComparadorPDF_CSV-windows
+          path: dist/ComparadorPDF_CSV.exe
+          retention-days: 30
+
+      - name: Criar Release (somente em tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/ComparadorPDF_CSV.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
